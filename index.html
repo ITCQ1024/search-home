@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>聚合搜索主页</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
+<script>
+// 在渲染前确定主题，避免深色模式下先闪一下白屏
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('theme'); } catch (e) {}
+  if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+<style>
+:root{
+  --bg:#f4f5f2; --surface:#ffffff; --text:#1b2430; --muted:#66727f;
+  --line:#d9ddd6; --chip:#e8ebe5; --accent:#2563eb; --accent-ink:#ffffff;
+  --ring:rgba(37,99,235,.22); --warn:#d93025;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#12171c; --surface:#1a2128; --text:#e6ebf0; --muted:#8c98a5;
+  --line:#2c353e; --chip:#222b34; --accent:#6ea0ff; --accent-ink:#0b1220;
+  --ring:rgba(110,160,255,.28); --warn:#ff7a7a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{
+  min-height:100vh;
+  padding:clamp(48px,16vh,150px) 20px 48px;
+  font-family:"悠哉字体","PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  transition:background .3s,color .3s;
+}
+main{max-width:780px;margin:0 auto}
+h1{
+  margin-bottom:12px;
+  text-align:center;
+  font-size:clamp(24px,4vw,30px);
+  font-weight:600;
+  letter-spacing:.02em;
+}
+/* 对联样式 */
+.couplet{
+  text-align:center;
+  color:var(--muted);
+  font-size:clamp(15px,2vw,17px);
+  margin-bottom:28px;
+  letter-spacing:0.04em;
+  line-height:1.7;
+}
+
+/* 搜索条 */
+.bar{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 6px 6px 18px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:14px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.bar svg.search-icon{
+  width:20px;height:20px;fill:var(--muted);flex-shrink:0;
+}
+.bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.bar.empty{border-color:var(--warn);box-shadow:0 0 0 3px transparent}
+#kw{
+  flex:1;min-width:0;
+  padding:10px 0;
+  border:0;outline:0;
+  background:transparent;color:inherit;
+  font:inherit;font-size:18px;
+}
+#kw::placeholder{color:var(--muted)}
+.go{
+  padding:10px 22px;
+  border:0;border-radius:9px;
+  background:var(--accent);color:var(--accent-ink);
+  font:inherit;font-size:16px;cursor:pointer;
+}
+.go:hover{filter:brightness(.92)}
+
+/* 引擎分组 */
+.groups{display:grid;gap:14px;margin-top:28px}
+.group{display:grid;grid-template-columns:3.5em 1fr;gap:12px;align-items:baseline}
+.group h2{font-size:14px;font-weight:500;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  padding:6px 14px;
+  border:1px solid transparent;border-radius:999px;
+  background:var(--chip);color:inherit;
+  font:inherit;font-size:15px;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.chip:hover{border-color:var(--line)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+/* 底部工具 */
+.tools{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:32px;
+  font-size:14px;color:var(--muted);
+}
+.tools .left{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}
+.tools label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.theme{
+  padding:6px 12px;
+  border:1px solid var(--line);border-radius:8px;
+  background:transparent;color:inherit;
+  font:inherit;font-size:14px;cursor:pointer;
+}
+.theme:hover{border-color:var(--muted)}
+
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar :focus-visible{outline:none}
+
+@media (max-width:520px){
+  .group{grid-template-columns:1fr;gap:6px}
+  .couplet{font-size:14px;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>自定义聚合搜索</h1>
+  <!-- 对联 -->
+  <div class="couplet">贵有恒，何必三更眠五更起；最无益，只怕一日曝十日寒。</div>
+
+  <form class="bar" id="bar" role="search" autocomplete="off">
+    <svg class="search-icon" viewBox="0 0 24 24">
+      <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 009.5 3 6.5 6.5 0 003 9.5 6.5 6.5 0 009.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+    </svg>
+    <input id="kw" type="search" name="q" aria-label="搜索关键词">
+    <button class="go" type="submit">搜索</button>
+  </form>
+
+  <div class="groups" id="groups"></div>
+
+  <div class="tools">
+    <div class="left">
+      <label><input type="checkbox" id="newtab"> 在新标签页打开</label>
+      <span>按 / 聚焦搜索框</span>
+    </div>
+    <button class="theme" id="theme" type="button"></button>
+  </div>
+
+  <noscript><p style="margin-top:24px;text-align:center">需要启用 JavaScript 才能使用搜索。</p></noscript>
+</main>
+
+<script>
+/* ========== 引擎配置：增删改只需要动这里 ==========
+   id    用于 ?e=xxx 参数和本地记忆
+   url   %s 会被替换为 URL 编码后的关键词
+   post  只有需要 POST 提交的站点才写，field 是表单字段名 */
+const ENGINES = [
+  { id:'baidu',    name:'百度',          group:'综合', url:'https://www.baidu.com/s?wd=%s' },
+  { id:'bing',     name:'必应国内',      group:'综合', url:'https://cn.bing.com/search?q=%s' },
+  { id:'bing-intl',name:'必应国际',      group:'综合', url:'https://www.bing.com/search?q=%s' },
+  { id:'google',   name:'谷歌',          group:'综合', url:'https://www.google.com/search?q=%s' },
+  { id:'sogou',    name:'搜狗',          group:'综合', url:'https://www.sogou.com/web?query=%s' },
+  { id:'so360',    name:'360搜索',       group:'综合', url:'https://www.so.com/s?q=%s' },
+  { id:'ddg',      name:'DuckDuckGo',    group:'综合', url:'https://duckduckgo.com/?q=%s' },
+  { id:'brave',    name:'Brave',         group:'综合', url:'https://search.brave.com/search?q=%s' },
+
+  { id:'github',   name:'GitHub',        group:'技术', url:'https://github.com/search?q=%s' },
+  { id:'so',       name:'StackOverflow', group:'技术', url:'https://stackoverflow.com/search?q=%s' },
+  { id:'mdn',      name:'MDN',           group:'技术', url:'https://developer.mozilla.org/zh-CN/search?q=%s' },
+  { id:'mslearn',  name:'Microsoft Learn', group:'技术', url:'https://learn.microsoft.com/zh-cn/search/?terms=%s' },
+  { id:'csdn',     name:'CSDN',          group:'技术', url:'https://so.csdn.net/so/search?q=%s' },
+  { id:'cnblogs',  name:'博客园',        group:'技术', url:'https://www.cnblogs.com/search?q=%s' },
+  { id:'juejin',   name:'掘金',          group:'技术', url:'https://juejin.cn/search?query=%s' },
+
+  { id:'zhihu',    name:'知乎',          group:'社区', url:'https://www.zhihu.com/search?q=%s' },
+  { id:'bilibili', name:'B站',           group:'社区', url:'https://search.bilibili.com/all?keyword=%s' },
+  { id:'52pojie',  name:'吾爱破解',      group:'社区', post:{ action:'https://www.52pojie.cn/search.php', field:'srchtxt' } },
+
+  { id:'baike',    name:'百度百科',      group:'百科', url:'https://baike.baidu.com/item/%s' },
+  { id:'wiki',     name:'维基百科',      group:'百科', url:'https://zh.wikipedia.org/w/index.php?search=%s' },
+
+  // ========== AI 分组（国内+海外） ==========
+  // ========== AI 分组（国内+海外） ==========
+  { id:'doubao',   name:'豆包',          group:'AI', url:'https://www.doubao.com/chat?q=%s' },
+  { id:'yuanbao',  name:'腾讯元宝',      group:'AI', url:'https://yuanbao.tencent.com/chat?q=%s' },
+  { id:'qwen',     name:'通义千问',      group:'AI', url:'https://tongyi.aliyun.com/qianwen/?prompt=%s' },
+  { id:'ernie',    name:'文心一言',      group:'AI', url:'https://yiyan.baidu.com/?q=%s' },
+  { id:'kimi',     name:'Kimi',          group:'AI', url:'https://kimi.moonshot.cn/?q=%s' },
+  { id:'glm',      name:'智谱清言',      group:'AI', url:'https://chatglm.cn/?q=%s' },
+  { id:'deepseek', name:'DeepSeek',      group:'AI', url:'https://chat.deepseek.com/?prompt=%s' },
+  { id:'chatgpt',  name:'ChatGPT',       group:'AI', url:'https://chat.openai.com/?q=%s' },
+  { id:'claude',   name:'Claude',        group:'AI', url:'https://claude.ai/new?q=%s' },
+  { id:'gemini',   name:'Gemini',        group:'AI', url:'https://gemini.google.com/app?q=%s' },
+  { id:'perplexity',name:'Perplexity',   group:'AI', url:'https://www.perplexity.ai/search?q=%s' },
+
+];
+
+/* ========== 工具函数 ========== */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
+};
+
+let current = ENGINES.find(e => e.id === store.get('engine')) || ENGINES[0];
+
+/* ========== 渲染引擎按钮 ========== */
+function build(){
+  const box = $('groups');
+  const groups = [...new Set(ENGINES.map(e => e.group))];
+  groups.forEach(g => {
+    const sec = document.createElement('section');
+    sec.className = 'group';
+    const h = document.createElement('h2');
+    h.textContent = g;
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    ENGINES.filter(e => e.group === g).forEach(e => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = e.name;
+      b.dataset.id = e.id;
+      b.addEventListener('click', () => select(e));
+      chips.append(b);
+    });
+    sec.append(h, chips);
+    box.append(sec);
+  });
+}
+function sync(){
+  document.querySelectorAll('.chip').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.id === current.id));
+  });
+  $('kw').placeholder = '用' + current.name + '搜索，回车跳转';
+}
+function select(e){
+  current = e;
+  store.set('engine', e.id);
+  sync();
+  $('kw').focus();
+}
+
+/* ========== 跳转 ========== */
+function go(engine, kw, sameTab){
+  const newTab = store.get('newtab', '1') === '1';
+  const target = sameTab ? '_self' : (newTab ? '_blank' : '_self');
+
+  if (engine.post) {
+    const f = document.createElement('form');
+    f.method = 'post';
+    f.action = engine.post.action;
+    f.target = target;
+    if (engine.post.charset) f.acceptCharset = engine.post.charset;
+    f.style.display = 'none';
+    const i = document.createElement('input');
+    i.type = 'hidden';
+    i.name = engine.post.field;
+    i.value = kw;
+    f.append(i);
+    document.body.append(f);
+    f.submit();
+    setTimeout(() => f.remove(), 1000);
+    return;
+  }
+
+  const url = engine.url.replace('%s', () => encodeURIComponent(kw));
+  if (target === '_blank') window.open(url, '_blank', 'noopener');
+  else location.href = url;
+}
+
+/* ========== 事件 ========== */
+$('bar').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const kw = $('kw').value.trim();
+  if (!kw) {
+    const bar = $('bar');
+    bar.classList.add('empty');
+    $('kw').focus();
+    setTimeout(() => bar.classList.remove('empty'), 900);
+    return;
+  }
+  go(current, kw, false);
+});
+
+addEventListener('keydown', e => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
+    e.preventDefault();
+    $('kw').focus();
+  }
+});
+
+const nt = $('newtab');
+nt.checked = store.get('newtab', '1') === '1';
+nt.addEventListener('change', () => store.set('newtab', nt.checked ? '1' : '0'));
+
+function themeLabel(){
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? '切换到浅色' : '切换到深色';
+}
+$('theme').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  store.set('theme', next);
+  themeLabel();
+});
+
+build();
+sync();
+themeLabel();
+if (matchMedia('(hover:hover)').matches) $('kw').focus();
+
+(function () {
+  const p = new URLSearchParams(location.search);
+  const q = (p.get('q') || '').trim();
+  if (!q) return;
+  const eng = ENGINES.find(e => e.id === p.get('e')) || current;
+  history.replaceState(null, '', location.pathname);
+  go(eng, q, true);
+})();
+</script>
+</body>
+</html>
